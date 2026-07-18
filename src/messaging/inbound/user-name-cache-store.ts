@@ -10,7 +10,15 @@ const DEFAULT_TTL_MS = 30 * 60 * 1000; // 30 minutes
 
 interface CacheEntry {
   name: string;
+  userId?: string;
+  identityResolved: boolean;
   expireAt: number;
+}
+
+export interface CachedUserIdentity {
+  name: string;
+  userId?: string;
+  identityResolved: boolean;
 }
 
 export class UserNameCache {
@@ -24,39 +32,52 @@ export class UserNameCache {
   }
 
   has(openId: string): boolean {
-    const entry = this.map.get(openId);
-    if (!entry) return false;
-    if (entry.expireAt <= Date.now()) {
-      this.map.delete(openId);
-      return false;
-    }
-    return true;
+    return this.getValidEntry(openId) !== undefined;
   }
 
   get(openId: string): string | undefined {
-    const entry = this.map.get(openId);
+    return this.getIdentity(openId)?.name;
+  }
+
+  getIdentity(openId: string): CachedUserIdentity | undefined {
+    const entry = this.getValidEntry(openId);
     if (!entry) return undefined;
-    if (entry.expireAt <= Date.now()) {
-      this.map.delete(openId);
-      return undefined;
-    }
     this.map.delete(openId);
     this.map.set(openId, entry);
-    return entry.name;
+    return {
+      name: entry.name,
+      userId: entry.userId,
+      identityResolved: entry.identityResolved,
+    };
   }
 
   set(openId: string, name: string): void {
+    const existing = this.getValidEntry(openId);
     this.map.delete(openId);
-    this.map.set(openId, { name, expireAt: Date.now() + this.ttlMs });
+    this.map.set(openId, {
+      name,
+      userId: existing?.userId,
+      identityResolved: existing?.identityResolved ?? false,
+      expireAt: Date.now() + this.ttlMs,
+    });
+    this.evict();
+  }
+
+  setResolved(openId: string, name: string, userId?: string): void {
+    this.map.delete(openId);
+    this.map.set(openId, {
+      name,
+      userId,
+      identityResolved: true,
+      expireAt: Date.now() + this.ttlMs,
+    });
     this.evict();
   }
 
   setMany(entries: Iterable<[string, string]>): void {
     for (const [openId, name] of entries) {
-      this.map.delete(openId);
-      this.map.set(openId, { name, expireAt: Date.now() + this.ttlMs });
+      this.set(openId, name);
     }
-    this.evict();
   }
 
   filterMissing(openIds: string[]): string[] {
@@ -75,6 +96,16 @@ export class UserNameCache {
 
   clear(): void {
     this.map.clear();
+  }
+
+  private getValidEntry(openId: string): CacheEntry | undefined {
+    const entry = this.map.get(openId);
+    if (!entry) return undefined;
+    if (entry.expireAt <= Date.now()) {
+      this.map.delete(openId);
+      return undefined;
+    }
+    return entry;
   }
 
   private evict(): void {

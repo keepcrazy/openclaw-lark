@@ -11,7 +11,7 @@ description: |
 - ✅ **时区固定**：Asia/Shanghai（UTC+8）
 - ✅ **时间格式**：ISO 8601 / RFC 3339（带时区），例如 `2026-02-25T14:00:00+08:00`
 - ✅ **create 最小必填**：summary, start_time, end_time
-- ✅ **user_open_id 强烈建议**：从 SenderId 获取（ou_xxx），确保用户能看到日程
+- ✅ **user_open_id 强烈建议**：从 SenderOpenId 获取（ou_xxx），确保用户能看到日程
 - ✅ **ID 格式约定**：用户 `ou_...`，群 `oc_...`，会议室 `omm_...`，邮箱 `email@...`
 
 ---
@@ -60,7 +60,7 @@ description: |
 
 ### 3. 统一使用 open_id（ou_...格式）
 
-- ✅ 创建日程：`user_open_id = SenderId`
+- ✅ 创建日程：`user_open_id = SenderOpenId`
 - ✅ 邀请参会人：`attendees[].id = "ou_xxx"`
 
 ⚠️ **ID 格式区分**：
@@ -168,7 +168,7 @@ description: |
 
 | 错误现象 | 根本原因 | 解决方案 |
 |---------|---------|---------|
-| **发起人不在参会人列表中** | 未传 `user_open_id` | 强烈建议传 `user_open_id = SenderId` |
+| **发起人不在参会人列表中** | 未传 `user_open_id` | 强烈建议传 `user_open_id = SenderOpenId` |
 | **参会人看不到其他参会人** | `attendee_ability` 权限不足 | 工具已默认设置 `can_modify_event` |
 | **时间不对** | 使用了 Unix 时间戳 | 改用 ISO 8601 格式（带时区）：`2024-01-01T00:00:00+08:00` |
 | **会议室显示"预约中"** | 会议室预约是异步的 | 等待几秒后用 `list` 查询 `rsvp_status` |

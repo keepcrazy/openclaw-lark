@@ -75,14 +75,15 @@ export async function batchResolveUserNames(params: {
         const openId: string | undefined = item.open_id;
         if (!openId) continue;
         const name: string = item.name || item.display_name || item.nickname || item.en_name || '';
-        cache.set(openId, name);
+        const userId = typeof item.user_id === 'string' ? item.user_id.trim() || undefined : undefined;
+        cache.setResolved(openId, name, userId);
         result.set(openId, name);
         resolved.add(openId);
       }
       // Cache empty names for IDs the API didn't return (no permission, etc.)
       for (const id of chunk) {
         if (!resolved.has(id)) {
-          cache.set(id, '');
+          cache.setResolved(id, '');
           result.set(id, '');
         }
       }
@@ -115,6 +116,7 @@ export function createBatchResolveNames(
 
 export interface ResolveUserNameResult {
   name?: string;
+  userId?: string;
   permissionError?: PermissionError;
 }
 
@@ -128,12 +130,19 @@ export async function resolveUserName(params: {
   account: LarkAccount;
   openId: string;
   log: (...args: unknown[]) => void;
+  /** Complete a name-only cache entry after the sender has passed the gate. */
+  requireUserId?: boolean;
 }): Promise<ResolveUserNameResult> {
-  const { account, openId, log } = params;
+  const { account, openId, log, requireUserId = false } = params;
   if (!account.configured || !openId) return {};
 
   const cache = getUserNameCache(account.accountId);
-  if (cache.has(openId)) return { name: cache.get(openId) ?? '' };
+  const cachedIdentity = cache.getIdentity(openId);
+  if (cachedIdentity && (!requireUserId || cachedIdentity.identityResolved)) {
+    return cachedIdentity.userId
+      ? { name: cachedIdentity.name, userId: cachedIdentity.userId }
+      : { name: cachedIdentity.name };
+  }
 
   try {
     const client = LarkClient.fromAccount(account).sdk;
@@ -148,21 +157,26 @@ export async function resolveUserName(params: {
       res?.data?.user?.display_name ||
       res?.data?.user?.nickname ||
       res?.data?.user?.en_name ||
+      cachedIdentity?.name ||
       '';
+    const rawUserId = res?.data?.user?.user_id;
+    const userId = typeof rawUserId === 'string' ? rawUserId.trim() || undefined : undefined;
 
     // Cache even empty names to avoid repeated API calls for users
     // whose names we cannot resolve (e.g. due to permissions).
-    cache.set(openId, name);
-    return { name: name || undefined };
+    cache.setResolved(openId, name, userId);
+    return userId ? { name: name || undefined, userId } : { name: name || undefined };
   } catch (err) {
     const permErr = extractPermissionError(err);
     if (permErr) {
       log(`feishu: permission error resolving user name: code=${permErr.code}`);
-      // Cache empty name so we don't retry a known-failing openId
-      cache.set(openId, '');
-      return { permissionError: permErr };
+      // Cache the completed lookup so permission failures do not consume API
+      // quota on every message. Preserve any name learned from the event.
+      const name = cachedIdentity?.name ?? '';
+      cache.setResolved(openId, name);
+      return name ? { name, permissionError: permErr } : { permissionError: permErr };
     }
     log(`feishu: failed to resolve user name for ${openId}: ${String(err)}`);
-    return {};
+    return cachedIdentity ? { name: cachedIdentity.name } : {};
   }
 }

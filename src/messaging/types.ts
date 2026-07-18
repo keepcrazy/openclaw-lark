@@ -274,6 +274,9 @@ export interface MessageContext {
   // Core identifiers
   chatId: string;
   messageId: string;
+  /** Tenant-scoped user_id used for stable cross-app agent identity. */
+  senderUserId?: string;
+  /** App-scoped open_id used for routing, authorization, and replies. */
   senderId: string;
   senderName?: string;
   chatType: 'p2p' | 'group';

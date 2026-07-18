@@ -45,7 +45,7 @@ const FeishuTaskTaskSchema = Type.Union([
     current_user_id: Type.Optional(
       Type.String({
         description:
-          '当前用户的 open_id（强烈建议，从消息上下文的 SenderId 获取）。如果 members 中不包含此用户，工具会自动添加为 follower，确保创建者可以编辑任务。',
+          '当前用户的 open_id（强烈建议，从消息上下文的 SenderOpenId 获取）。如果 members 中不包含此用户，工具会自动添加为 follower，确保创建者可以编辑任务。',
       }),
     ),
     description: Type.Optional(

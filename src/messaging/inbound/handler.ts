@@ -133,7 +133,10 @@ export async function handleFeishuMessage(params: {
   }
 
   // 5. Batch pre-warm user name cache (sender + mentions)
-  await prefetchUserNames({ ctx, account, log });
+  const senderUserId = await prefetchUserNames({ ctx, account, log });
+  if (!ctx.senderUserId && senderUserId) {
+    ctx = { ...ctx, senderUserId };
+  }
 
   // 6. Enrich (heavyweight, after gate — parallel where possible)
   const enrichParams = { ctx, accountScopedCfg, account, log };

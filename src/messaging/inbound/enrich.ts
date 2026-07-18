@@ -69,6 +69,14 @@ export async function resolveSenderInfo(params: {
     log(`sender resolve failed: permission error code=${senderResult.permissionError.code}`);
   }
 
+  const senderUserId = ctx.senderUserId ?? senderResult.userId;
+  if (senderUserId) {
+    if (ctx.senderId) {
+      getUserNameCache(account.accountId).setResolved(ctx.senderId, senderResult.name ?? '', senderUserId);
+    }
+    ctx = { ...ctx, senderUserId };
+  }
+
   // Track permission errors (with cooldown)
   let permissionError: PermissionError | undefined;
   if (senderResult.permissionError) {
@@ -98,9 +106,9 @@ export async function prefetchUserNames(params: {
   ctx: MessageContext;
   account: LarkAccount;
   log: (...args: unknown[]) => void;
-}): Promise<void> {
+}): Promise<string | undefined> {
   const { ctx, account, log } = params;
-  if (!account.configured) return;
+  if (!account.configured) return ctx.senderUserId;
 
   const cache = getUserNameCache(account.accountId);
 
@@ -109,6 +117,17 @@ export async function prefetchUserNames(params: {
     if (!m.isBot && m.openId && m.name) {
       cache.set(m.openId, m.name);
     }
+  }
+
+  let senderUserId = ctx.senderUserId;
+  if (!senderUserId && ctx.senderId) {
+    const senderResult = await resolveUserName({
+      account,
+      openId: ctx.senderId,
+      log,
+      requireUserId: true,
+    });
+    senderUserId = senderResult.userId;
   }
 
   // Collect all openIds we care about
@@ -123,6 +142,8 @@ export async function prefetchUserNames(params: {
   if (toResolve.length > 0) {
     await batchResolveUserNames({ account, openIds: toResolve, log });
   }
+
+  return senderUserId;
 }
 
 // ---------------------------------------------------------------------------

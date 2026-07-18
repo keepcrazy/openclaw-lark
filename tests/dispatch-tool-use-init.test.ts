@@ -257,4 +257,30 @@ describe('dispatchToAgent tool_use trace initialization', () => {
     });
   });
 
+  it('uses tenant user_id for SenderId while preserving the sender open_id', async () => {
+    const dc = createDispatchContext();
+    const ctx = { ...dc.ctx, senderUserId: 'u_tenant' };
+    buildDispatchContextMock.mockReturnValue({ ...dc, ctx });
+
+    await dispatchToAgent({
+      ctx: ctx as never,
+      mediaPayload: {},
+      account: dc.account as never,
+      accountScopedCfg: {} as never,
+      historyLimit: 0,
+    });
+
+    expect(buildInboundPayloadMock).toHaveBeenCalledTimes(1);
+    const buildInboundPayloadArgs = buildInboundPayloadMock.mock.calls[0] as unknown as [
+      unknown,
+      { senderId?: string; extraFields?: Record<string, unknown> },
+    ];
+    expect(buildInboundPayloadArgs[1]).toMatchObject({
+      senderId: 'u_tenant',
+      extraFields: {
+        SenderOpenId: 'ou_sender_1',
+      },
+    });
+  });
+
 });

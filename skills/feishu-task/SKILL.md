@@ -21,7 +21,7 @@ description: |
 - ✅ **时间格式**：ISO 8601 / RFC 3339（带时区），例如 `2026-02-28T17:00:00+08:00`
 - ✅ **身份授权**：工具支持 `auth_type` 为 `user`（默认，用户身份）或 `tenant`（应用身份）。
 - ✅ **任务 Agent（feishu_task_agent）**：仅支持应用身份（tenant），不支持 user 身份
-- ✅ **current_user_id 强烈建议**：从消息上下文的 SenderId 获取（ou_...），工具会自动添加为 follower（如不在 members 中），确保创建者可以编辑任务
+- ✅ **current_user_id 强烈建议**：从消息上下文的 SenderOpenId 获取（ou_...），工具会自动添加为 follower（如不在 members 中），确保创建者可以编辑任务
 - ✅ **patch/get 必须**：task_guid
 - ✅ **tasklist.tasks 必须**：tasklist_guid
 - ✅ **完成任务**：completed_at = "2026-02-26 15:00:00"
@@ -34,7 +34,7 @@ description: |
 
 | 用户意图 | 工具 | action | 必填参数 | 强烈建议 | 常用可选 |
 |---------|------|--------|---------|---------|---------|
-| 新建待办 | feishu_task_task | create | summary | current_user_id（SenderId） | members, due, description, auth_type |
+| 新建待办 | feishu_task_task | create | summary | current_user_id（SenderOpenId） | members, due, description, auth_type |
 | 查未完成任务 | feishu_task_task | list | - | completed=false | page_size, auth_type, agent_task_status |
 | 获取任务详情 | feishu_task_task | get | task_guid | - | auth_type |
 | 完成任务 | feishu_task_task | patch | task_guid, completed_at | - | auth_type |
@@ -62,7 +62,7 @@ description: |
 - **`tenant`**：应用身份（tenant_access_token）。当用户身份不满足要求时，使用应用身份。如果创建的任务没有把用户加入成员，用户可能看不见。
 
 **自动保护机制**：
-- 传入 `current_user_id` 参数（从 SenderId 获取）
+- 传入 `current_user_id` 参数（从 SenderOpenId 获取）
 - 如果 `members` 中不包含 `current_user_id`，工具会**自动添加为 follower**
 - 确保创建者始终可以编辑和查看任务
 
@@ -158,7 +158,7 @@ description: |
 
 **说明**：
 - `summary` 是必填字段
-- `current_user_id` 强烈建议传入（从 SenderId 获取），工具会自动添加为 follower
+- `current_user_id` 强烈建议传入（从 SenderOpenId 获取），工具会自动添加为 follower
 - `members` 可以只包含其他协作者，当前用户会被自动添加
 - 时间使用带时区的 ISO 8601 格式
 
@@ -267,7 +267,7 @@ description: |
 
 | 错误现象 | 根本原因 | 解决方案 |
 |---------|---------|---------|
-| **创建后无法编辑任务** | 创建时未将自己加入 members | 创建时至少将当前用户（SenderId）加为 assignee 或 follower |
+| **创建后无法编辑任务** | 创建时未将自己加入 members | 创建时至少将当前用户（SenderOpenId）加为 assignee 或 follower |
 | **patch 失败提示 task_guid 缺失** | 未传 task_guid 参数 | patch/get/add_members 必须传 task_guid |
 | **tasks 失败提示 tasklist_guid 缺失** | 未传 tasklist_guid 参数 | tasklist.tasks action 必须传 tasklist_guid |
 | **反完成失败** | completed_at 格式错误 | 使用 `"0"` 字符串，不是数字 0 |

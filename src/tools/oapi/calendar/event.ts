@@ -51,7 +51,7 @@ const FeishuCalendarEventSchema = Type.Union([
     user_open_id: Type.Optional(
       Type.String({
         description:
-          '当前请求用户的 open_id（可选，但强烈建议提供）。从消息上下文的 SenderId 字段获取，格式为 ou_xxx。日程创建在应用日历上，必须通过此参数将用户加为参会人，日程才会出现在用户的飞书日历中。',
+          '当前请求用户的 open_id（可选，但强烈建议提供）。从消息上下文的 SenderOpenId 字段获取，格式为 ou_xxx。日程创建在应用日历上，必须通过此参数将用户加为参会人，日程才会出现在用户的飞书日历中。',
       }),
     ),
     calendar_id: Type.Optional(
@@ -536,7 +536,7 @@ export function registerFeishuCalendarEventTool(api: OpenClawPluginApi): void {
       name: 'feishu_calendar_event',
       label: 'Feishu Calendar Events',
       description:
-        "【以用户身份】飞书日程管理工具。当用户要求查看日程、创建会议、约会议、修改日程、删除日程、搜索日程、回复日程邀请时使用。Actions: create（创建日历事件）, list（查询时间范围内的日程，自动展开重复日程）, get（获取日程详情）, patch（更新日程）, delete（删除日程）, search（搜索日程）, reply（回复日程邀请）, instances（获取重复日程的实例列表，仅对重复日程有效）, instance_view（查看展开后的日程列表）。【重要】create 时必须传 user_open_id 参数，值为消息上下文中的 SenderId（格式 ou_xxx），否则日程只在应用日历上，用户完全看不到。list 操作使用 instance_view 接口，会自动展开重复日程为多个实例，时间区间不能超过40天，返回实例数量上限1000。时间参数使用ISO 8601 / RFC 3339 格式（包含时区），例如 '2024-01-01T00:00:00+08:00'。",
+        "【以用户身份】飞书日程管理工具。当用户要求查看日程、创建会议、约会议、修改日程、删除日程、搜索日程、回复日程邀请时使用。Actions: create（创建日历事件）, list（查询时间范围内的日程，自动展开重复日程）, get（获取日程详情）, patch（更新日程）, delete（删除日程）, search（搜索日程）, reply（回复日程邀请）, instances（获取重复日程的实例列表，仅对重复日程有效）, instance_view（查看展开后的日程列表）。【重要】create 时必须传 user_open_id 参数，值为消息上下文中的 SenderOpenId（格式 ou_xxx），否则日程只在应用日历上，用户完全看不到。list 操作使用 instance_view 接口，会自动展开重复日程为多个实例，时间区间不能超过40天，返回实例数量上限1000。时间参数使用ISO 8601 / RFC 3339 格式（包含时区），例如 '2024-01-01T00:00:00+08:00'。",
       parameters: FeishuCalendarEventSchema,
       async execute(_toolCallId: string, params: unknown) {
         const p = params as FeishuCalendarEventParams;

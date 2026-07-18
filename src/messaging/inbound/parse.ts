@@ -128,6 +128,7 @@ export async function parseMessageEvent(
   return {
     chatId: event.message.chat_id,
     messageId: event.message.message_id,
+    senderUserId: event.sender.sender_id.user_id?.trim() || undefined,
     senderId: event.sender.sender_id.open_id || '',
     chatType: event.message.chat_type,
     rootId: event.message.root_id || undefined,

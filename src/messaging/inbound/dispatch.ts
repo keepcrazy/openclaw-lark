@@ -441,7 +441,7 @@ export async function dispatchToAgent(params: {
     commandBody: params.ctx.content,
     originatingTo,
     senderName: params.ctx.senderName ?? params.ctx.senderId,
-    senderId: params.ctx.senderId,
+    senderId: params.ctx.senderUserId || params.ctx.senderId,
     messageSid: params.ctx.messageId,
     wasMentioned:
       mentionedBot(params.ctx) ||
@@ -456,6 +456,9 @@ export async function dispatchToAgent(params: {
     extraFields: {
       ...params.mediaPayload,
       ...(params.extraInboundFields ?? {}),
+      SenderOpenId:
+        params.ctx.rawSender?.sender_id?.open_id?.trim() ||
+        (params.ctx.senderId.startsWith('ou_') ? params.ctx.senderId : undefined),
       ...(groupSystemPrompt ? { GroupSystemPrompt: groupSystemPrompt } : {}),
       ...(dc.ctx.threadId ? { MessageThreadId: dc.ctx.threadId } : {}),
     },

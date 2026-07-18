@@ -30,6 +30,8 @@
   },
   "scripts": {
     "build": "tsdown",
+    "package:build": "sh scripts/package-build.sh",
+    "package:install": "sh scripts/package-install.sh",
     "release": "node scripts/release.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
