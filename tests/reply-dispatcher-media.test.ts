@@ -78,13 +78,31 @@ vi.mock('../src/messaging/outbound/typing', () => ({
 vi.mock('../src/card/card-error', () => ({
   isCardTableLimitError: () => false,
 }));
+const replyModeState = vi.hoisted(() => ({
+  value: 'static' as 'static' | 'streaming',
+}));
 vi.mock('../src/card/reply-mode', () => ({
-  resolveReplyMode: () => 'static',
+  resolveReplyMode: () => replyModeState.value,
   expandAutoMode: ({ mode }: { mode: string }) => mode,
   shouldUseCard: () => false,
 }));
+const mockControllerDeliver = vi.hoisted(() => vi.fn());
 vi.mock('../src/card/streaming-card-controller', () => ({
-  StreamingCardController: class {},
+  StreamingCardController: class {
+    isTerminated = false;
+    isAborted = false;
+    cardMessageId = 'om_streaming_card';
+
+    shouldSkipForUnavailable() {
+      return false;
+    }
+    ensureCardCreated() {
+      return Promise.resolve();
+    }
+    onDeliver(payload: unknown) {
+      return mockControllerDeliver(payload);
+    }
+  },
 }));
 
 let terminateReturn = true;
@@ -112,7 +130,9 @@ import { createFeishuReplyDispatcher } from '../src/card/reply-dispatcher';
 // ---------------------------------------------------------------------------
 
 interface TestContext {
-  dispatcher: { deliver: (payload: Record<string, unknown>) => Promise<void> };
+  dispatcher: {
+    deliver: (payload: Record<string, unknown>, meta?: { kind?: string }) => Promise<void>;
+  };
   sentText: unknown[];
   sentCards: unknown[];
   sentMedia: unknown[];
@@ -169,6 +189,7 @@ function createDispatcher(options: {
 beforeEach(() => {
   vi.clearAllMocks();
   terminateCalls.length = 0;
+  replyModeState.value = 'static';
 });
 
 describe('reply-dispatcher media delivery', () => {
@@ -200,6 +221,30 @@ describe('reply-dispatcher media delivery', () => {
       'https://example.com/image-a.png',
       'https://example.com/image-b.png',
     ]);
+  });
+
+  it('delivers TTS audio after streaming card text', async () => {
+    replyModeState.value = 'streaming';
+    const ctx = createDispatcher();
+
+    await ctx.dispatcher.deliver(
+      {
+        text: '这是语音回复',
+        mediaUrl: '/tmp/openclaw/tts/voice.ogg',
+        audioAsVoice: true,
+      },
+      { kind: 'final' },
+    );
+
+    expect(mockControllerDeliver).toHaveBeenCalledTimes(1);
+    expect(ctx.sentText).toHaveLength(0);
+    expect(ctx.sentCards).toHaveLength(0);
+    expect(ctx.sentMedia).toHaveLength(1);
+    expect(ctx.sentMedia[0]).toEqual(
+      expect.objectContaining({
+        mediaUrl: '/tmp/openclaw/tts/voice.ogg',
+      }),
+    );
   });
 
   it('failed media send triggers staticGuard terminate', async () => {

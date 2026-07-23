@@ -128,6 +128,34 @@ export function createFeishuReplyDispatcher(params: CreateFeishuReplyDispatcherP
     return staticGuard?.isTerminated ?? false;
   };
 
+  const sendPayloadMedia = async (
+    mediaUrls: readonly string[],
+    deliveryMode: 'streaming' | 'static',
+  ): Promise<void> => {
+    for (const mediaUrl of mediaUrls) {
+      if (!mediaUrl?.trim()) continue;
+      try {
+        log.info(`deliver: sending media via ${deliveryMode} path`, {
+          mediaUrl: mediaUrl.slice(0, 80),
+        });
+        await sendMediaLark({
+          cfg,
+          to: chatId,
+          mediaUrl,
+          mediaLocalRoots,
+          accountId,
+          replyToMessageId,
+          replyInThread,
+        });
+      } catch (mediaErr) {
+        if (staticGuard?.terminate('deliver.media', mediaErr)) return;
+        log.error(`deliver: ${deliveryMode} media send failed`, {
+          error: String(mediaErr),
+        });
+      }
+    }
+  };
+
   // ---- Typing indicator (reaction-based) ----
   let typingState: TypingIndicatorState | null = null;
   let typingStopped = false;
@@ -240,6 +268,7 @@ export function createFeishuReplyDispatcher(params: CreateFeishuReplyDispatcherP
 
           if (controller.cardMessageId) {
             await controller.onDeliver({ ...payload, text });
+            await sendPayloadMedia(payloadMediaUrls, 'streaming');
             return;
           }
           // Card creation failed — fall through to static delivery
@@ -334,28 +363,7 @@ export function createFeishuReplyDispatcher(params: CreateFeishuReplyDispatcherP
       }
 
       // ---- Static media delivery ----
-      for (const mediaUrl of payloadMediaUrls) {
-        if (!mediaUrl?.trim()) continue;
-        try {
-          log.info('deliver: sending media via static path', {
-            mediaUrl: mediaUrl.slice(0, 80),
-          });
-          await sendMediaLark({
-            cfg,
-            to: chatId,
-            mediaUrl,
-            mediaLocalRoots,
-            accountId,
-            replyToMessageId,
-            replyInThread,
-          });
-        } catch (mediaErr) {
-          if (staticGuard?.terminate('deliver.media', mediaErr)) return;
-          log.error('deliver: static media send failed', {
-            error: String(mediaErr),
-          });
-        }
-      }
+      await sendPayloadMedia(payloadMediaUrls, 'static');
     },
 
     onError: async (err, info) => {
