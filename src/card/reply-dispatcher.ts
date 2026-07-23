@@ -13,6 +13,7 @@
 
 import { createReplyPrefixContext, createTypingCallbacks } from 'openclaw/plugin-sdk/channel-runtime';
 import { logTypingFailure } from 'openclaw/plugin-sdk/channel-feedback';
+import { getAgentScopedMediaLocalRoots } from 'openclaw/plugin-sdk/media-runtime';
 import type { ReplyPayload } from 'openclaw/plugin-sdk';
 import { createAccountScopedConfig, getLarkAccount } from '../core/accounts';
 import { resolveFooterConfig } from '../core/footer-config';
@@ -48,6 +49,7 @@ export function createFeishuReplyDispatcher(params: CreateFeishuReplyDispatcherP
   const accountScopedCfg = createAccountScopedConfig(cfg, account.accountId);
 
   const prefixContext = createReplyPrefixContext({ cfg, agentId });
+  const mediaLocalRoots = getAgentScopedMediaLocalRoots(cfg, agentId);
 
   // ---- Reply mode resolution ----
   const chatType = params.chatType;
@@ -342,6 +344,7 @@ export function createFeishuReplyDispatcher(params: CreateFeishuReplyDispatcherP
             cfg,
             to: chatId,
             mediaUrl,
+            mediaLocalRoots,
             accountId,
             replyToMessageId,
             replyInThread,

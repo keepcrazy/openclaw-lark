@@ -26,6 +26,9 @@ vi.mock('openclaw/plugin-sdk/channel-runtime', () => ({
 vi.mock('openclaw/plugin-sdk/channel-feedback', () => ({
   logTypingFailure: vi.fn(),
 }));
+vi.mock('openclaw/plugin-sdk/media-runtime', () => ({
+  getAgentScopedMediaLocalRoots: () => ['/tmp/openclaw', '/Users/test/.openclaw/media'],
+}));
 
 vi.mock('../src/core/accounts', () => ({
   createAccountScopedConfig: vi.fn(),
@@ -177,7 +180,10 @@ describe('reply-dispatcher media delivery', () => {
     expect(ctx.sentText).toHaveLength(0);
     expect(ctx.sentCards).toHaveLength(0);
     expect(ctx.sentMedia).toHaveLength(1);
-    expect((ctx.sentMedia[0] as { mediaUrl: string }).mediaUrl).toBe('https://example.com/image.png');
+    expect(ctx.sentMedia[0]).toMatchObject({
+      mediaUrl: 'https://example.com/image.png',
+      mediaLocalRoots: ['/tmp/openclaw', '/Users/test/.openclaw/media'],
+    });
   });
 
   it('mixed payload delivers both text and media', async () => {
