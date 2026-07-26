@@ -21,7 +21,7 @@ import { sendCardFeishu, sendMessageFeishu, updateCardFeishu } from '../messagin
 const log = larkLogger('channel/interactive-dispatch');
 
 interface FeishuCardActionTriggerEvent {
-  operator?: { open_id?: string };
+  operator?: { open_id?: string; user_id?: string };
   open_chat_id?: string;
   open_message_id?: string;
   context?: { open_chat_id?: string; open_message_id?: string };
@@ -31,6 +31,7 @@ interface FeishuCardActionTriggerEvent {
 function extractBasics(data: unknown): {
   action: string;
   senderOpenId?: string;
+  senderUserId?: string;
   openChatId?: string;
   openMessageId?: string;
 } | null {
@@ -43,6 +44,7 @@ function extractBasics(data: unknown): {
     return {
       action: action.trim(),
       senderOpenId: ev.operator?.open_id,
+      senderUserId: ev.operator?.user_id,
       openChatId,
       openMessageId,
     };
@@ -56,7 +58,10 @@ export type FeishuInteractiveHandlerResponse = unknown;
 export interface FeishuInteractiveHandlerContext {
   channel: 'feishu';
   accountId: string;
+  /** Backward-compatible sender identity. This remains the Feishu open_id. */
   senderId?: string;
+  senderOpenId?: string;
+  senderUserId?: string;
   conversationId?: string;
   messageId?: string;
   namespace: string;
@@ -210,6 +215,8 @@ export async function dispatchFeishuPluginInteractiveHandler(params: {
           channel: 'feishu',
           accountId: params.accountId,
           senderId: basics.senderOpenId,
+          senderOpenId: basics.senderOpenId,
+          senderUserId: basics.senderUserId,
           conversationId: basics.openChatId,
           messageId: basics.openMessageId,
           namespace,
