@@ -4,7 +4,7 @@
  *
  * System command and permission notification dispatch for inbound messages.
  *
- * Handles control commands (/help, /reset, etc.) via plain-text delivery
+ * Handles control commands (/help, /reset, etc.) via non-streaming text or card delivery
  * and permission-error notifications via the streaming card flow.
  */
 
@@ -13,7 +13,7 @@ import { larkLogger } from '../../core/lark-logger';
 import { ticketElapsed } from '../../core/lark-ticket';
 import { createFeishuReplyDispatcher } from '../../card/reply-dispatcher';
 import { startToolUseTraceRun } from '../../card/tool-use-trace-store';
-import { sendMessageFeishu } from '../outbound/send';
+import { sendCardFeishu, sendMessageFeishu } from '../outbound/send';
 import type { PermissionError } from './permission';
 import type { DispatchContext } from './dispatch-context';
 import { buildInboundPayload } from './dispatch-builders';
@@ -98,8 +98,8 @@ export async function dispatchPermissionNotification(
 // ---------------------------------------------------------------------------
 
 /**
- * Dispatch a system command (/help, /reset, etc.) via plain-text delivery.
- * No streaming card, no "Processing..." state.
+ * Dispatch a system command (/help, /reset, etc.) via non-streaming delivery.
+ * No "Processing..." state.
  */
 export async function dispatchSystemCommand(
   dc: DispatchContext,
@@ -109,10 +109,8 @@ export async function dispatchSystemCommand(
   let delivered = false;
   const suppressToolDetails = isLifecycleSessionCommand(dc.ctx.content);
 
-  dc.log(
-    `feishu[${dc.account.accountId}]: detected system command, using plain-text dispatch`,
-  );
-  log.info('system command detected, plain-text dispatch');
+  dc.log(`feishu[${dc.account.accountId}]: detected system command, using non-streaming dispatch`);
+  log.info('system command detected, non-streaming dispatch');
 
   await dc.core.channel.reply.dispatchReplyWithBufferedBlockDispatcher({
     ctx: ctxPayload,
@@ -120,6 +118,20 @@ export async function dispatchSystemCommand(
     dispatcherOptions: {
       deliver: async (payload, info) => {
         if (suppressToolDetails && info.kind === 'tool') {
+          return;
+        }
+
+        const card = resolveFeishuCard(payload.channelData);
+        if (card) {
+          await sendCardFeishu({
+            cfg: dc.accountScopedCfg,
+            to: dc.ctx.chatId,
+            card,
+            replyToMessageId: replyToMessageId ?? dc.ctx.messageId,
+            accountId: dc.account.accountId,
+            replyInThread: dc.isThread,
+          });
+          delivered = true;
           return;
         }
 
@@ -149,6 +161,18 @@ export async function dispatchSystemCommand(
 
   dc.log(`feishu[${dc.account.accountId}]: system command dispatched (delivered=${delivered})`);
   log.info(`system command dispatched (delivered=${delivered}, elapsed=${ticketElapsed()}ms)`);
+}
+
+function resolveFeishuCard(channelData: Record<string, unknown> | undefined): Record<string, unknown> | undefined {
+  const feishuData = channelData?.feishu;
+  if (!isRecord(feishuData) || !isRecord(feishuData.card)) {
+    return undefined;
+  }
+  return feishuData.card;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value != null && !Array.isArray(value);
 }
 
 function isLifecycleSessionCommand(text: string | undefined): boolean {

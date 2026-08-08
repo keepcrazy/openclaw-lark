@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { dispatchReplyWithBufferedBlockDispatcherMock, sendMessageFeishuMock } = vi.hoisted(() => ({
+const { dispatchReplyWithBufferedBlockDispatcherMock, sendCardFeishuMock, sendMessageFeishuMock } = vi.hoisted(() => ({
   dispatchReplyWithBufferedBlockDispatcherMock: vi.fn(),
+  sendCardFeishuMock: vi.fn().mockResolvedValue({}),
   sendMessageFeishuMock: vi.fn().mockResolvedValue({}),
 }));
 
@@ -34,6 +35,7 @@ vi.mock('../src/card/tool-use-trace-store', () => ({
 }));
 
 vi.mock('../src/messaging/outbound/send', () => ({
+  sendCardFeishu: sendCardFeishuMock,
   sendMessageFeishu: sendMessageFeishuMock,
 }));
 
@@ -71,6 +73,38 @@ beforeEach(() => {
 });
 
 describe('dispatchSystemCommand', () => {
+  it('delivers card-only structured payloads and preserves reply metadata', async () => {
+    const card = {
+      schema: '2.0',
+      body: { elements: [{ tag: 'markdown', content: '**Status:** OK' }] },
+    };
+    dispatchReplyWithBufferedBlockDispatcherMock.mockImplementationOnce(
+      async (params: {
+        dispatcherOptions: {
+          deliver: (
+            payload: { text?: string; channelData?: Record<string, unknown> },
+            info: { kind: 'tool' | 'final' | 'block' },
+          ) => Promise<void>;
+        };
+      }) => {
+        await params.dispatcherOptions.deliver({ channelData: { feishu: { card } } }, { kind: 'final' });
+      },
+    );
+
+    await dispatchSystemCommand(createDispatchContext('/status'), {} as never, 'om_reply_1');
+
+    expect(sendCardFeishuMock).toHaveBeenCalledTimes(1);
+    expect(sendCardFeishuMock).toHaveBeenCalledWith({
+      cfg: {},
+      to: 'chat-1',
+      card,
+      replyToMessageId: 'om_reply_1',
+      accountId: 'default',
+      replyInThread: false,
+    });
+    expect(sendMessageFeishuMock).not.toHaveBeenCalled();
+  });
+
   it.each(['/new', '/reset'])(
     'suppresses tool detail deliveries for %s session lifecycle commands',
     async (command) => {
